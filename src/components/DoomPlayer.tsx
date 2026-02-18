@@ -1,22 +1,50 @@
+/**
+ * DoomPlayer — Componente autónomo que ejecuta DOOM (shareware) en el navegador
+ * usando WebAssembly. Se puede importar en cualquier página React.
+ *
+ * Uso:
+ *   import DoomPlayer from "@/components/DoomPlayer";
+ *   <DoomPlayer />
+ *
+ * Requisitos CSS (index.css):
+ *   - .doom-border  → borde rojo pixelado
+ *   - .doom-glow    → texto con resplandor rojo
+ *   - .fire-gradient → gradiente de fuego en texto
+ *   - .scanlines    → overlay de líneas de escáner CRT
+ *   - Variables CSS: --doom-red, --doom-panel
+ *
+ * Controles dentro del juego:
+ *   Movimiento : ↑↓←→  |  Sprint: SHIFT  |  Strafe: ALT + ←→
+ *   Disparo    : CTRL  |  Usar/Puertas: SPACE  |  Armas: 1-7
+ *   Menú/Pausa : ESC   |  Mapa: TAB  |  Guardar: F2  |  Cargar: F3
+ *   Guardado rápido: F6 / F9
+ *
+ * WASM: https://github.com/diekmann/wasm-fizzbuzz (doom.wasm)
+ */
 import { useEffect, useRef, useState } from "react";
 
+/** URL del binario DOOM WebAssembly (shareware, versión pública) */
 const DOOM_WASM_URL = "https://diekmann.github.io/wasm-fizzbuzz/doom/doom.wasm";
 
+/** Resolución de pantalla de DOOM × 2 para mayor nitidez */
 const DOOM_SCREEN_WIDTH = 320 * 2;
 const DOOM_SCREEN_HEIGHT = 200 * 2;
 
-// Doom keycodes mapping from browser keycodes
+/**
+ * Convierte keycodes del navegador a keycodes nativos de DOOM.
+ * DOOM usa sus propios códigos internos distintos a los del DOM.
+ */
 function doomKeyCode(keyCode: number): number {
   switch (keyCode) {
-    case 8: return 127;           // KEY_BACKSPACE
-    case 17: return 0x80 + 0x1d; // KEY_RCTRL
-    case 18: return 0x80 + 0x38; // KEY_RALT
-    case 37: return 0xac;        // KEY_LEFTARROW
-    case 38: return 0xad;        // KEY_UPARROW
-    case 39: return 0xae;        // KEY_RIGHTARROW
-    case 40: return 0xaf;        // KEY_DOWNARROW
+    case 8:  return 127;           // Backspace → KEY_BACKSPACE
+    case 17: return 0x80 + 0x1d; // Ctrl      → KEY_RCTRL  (DISPARO)
+    case 18: return 0x80 + 0x38; // Alt       → KEY_RALT   (STRAFE)
+    case 37: return 0xac;        // ←  KEY_LEFTARROW
+    case 38: return 0xad;        // ↑  KEY_UPARROW
+    case 39: return 0xae;        // →  KEY_RIGHTARROW
+    case 40: return 0xaf;        // ↓  KEY_DOWNARROW
     default:
-      if (keyCode >= 65 && keyCode <= 90) return keyCode + 32; // A-Z to lowercase
+      if (keyCode >= 65 && keyCode <= 90)  return keyCode + 32; // A-Z → a-z
       if (keyCode >= 112 && keyCode <= 123) return keyCode + 75; // F1-F12
       return keyCode;
   }
