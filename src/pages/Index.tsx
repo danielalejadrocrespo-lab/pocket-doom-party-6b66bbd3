@@ -1,13 +1,36 @@
 import doomBg from "@/assets/doom-bg.jpg";
 import DoomPlayer from "@/components/DoomPlayer";
 
-const CONTROLS = [
-  { key: "↑ ↓ ← →", action: "Move / Turn" },
-  { key: "W", action: "Use / Open" },
-  { key: "S", action: "Fire" },
-  { key: "SPACE", action: "Speed" },
-  { key: "ALT", action: "Strafe mode" },
-  { key: "A / D", action: "Strafe" },
+const CONTROL_GROUPS = [
+  {
+    label: "MOVIMIENTO",
+    controls: [
+      { key: "↑ / ↓", action: "Avanzar / Retroceder" },
+      { key: "← / →", action: "Girar izquierda / derecha" },
+      { key: "ALT + ← →", action: "Desplazarse lateral" },
+      { key: "SHIFT", action: "Correr (sprint)" },
+    ],
+  },
+  {
+    label: "COMBATE",
+    controls: [
+      { key: "CTRL", action: "Disparar" },
+      { key: "SPACE", action: "Abrir puertas / Usar" },
+      { key: "1 – 7", action: "Seleccionar arma" },
+    ],
+  },
+  {
+    label: "SISTEMA",
+    controls: [
+      { key: "ESC", action: "Menú / Pausa" },
+      { key: "TAB", action: "Mapa automático" },
+      { key: "F1", action: "Ayuda" },
+      { key: "F2", action: "Guardar partida" },
+      { key: "F3", action: "Cargar partida" },
+      { key: "F6", action: "Guardar rápido" },
+      { key: "F9", action: "Cargar rápido" },
+    ],
+  },
 ];
 
 const Index = () => {
@@ -52,33 +75,52 @@ const Index = () => {
             className="text-center mb-8 doom-glow"
             style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.7rem", color: "hsl(var(--doom-red))", letterSpacing: "0.3em" }}
           >
-            CONTROLS
+            CONTROLES
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {CONTROLS.map(({ key, action }) => (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {CONTROL_GROUPS.map(({ label, controls }) => (
               <div
-                key={key}
-                className="flex items-center gap-3 p-3"
+                key={label}
                 style={{
                   background: "hsl(var(--doom-panel))",
                   border: "1px solid hsl(var(--border))",
                 }}
               >
-                <kbd
-                  className="px-2 py-1 text-xs font-mono shrink-0"
+                <div
+                  className="px-4 py-2 text-center"
                   style={{
                     background: "hsl(var(--doom-red) / 0.15)",
-                    border: "1px solid hsl(var(--doom-red) / 0.5)",
+                    borderBottom: "1px solid hsl(var(--doom-red) / 0.4)",
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: "0.5rem",
                     color: "hsl(var(--doom-red))",
-                    minWidth: "4rem",
-                    textAlign: "center",
+                    letterSpacing: "0.2em",
                   }}
                 >
-                  {key}
-                </kbd>
-                <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-                  {action}
-                </span>
+                  {label}
+                </div>
+                <div className="divide-y" style={{ borderColor: "hsl(var(--border))" }}>
+                  {controls.map(({ key, action }) => (
+                    <div key={key} className="flex items-center gap-3 px-4 py-2">
+                      <kbd
+                        className="px-2 py-1 text-xs font-mono shrink-0"
+                        style={{
+                          background: "hsl(var(--doom-red) / 0.1)",
+                          border: "1px solid hsl(var(--doom-red) / 0.5)",
+                          color: "hsl(var(--doom-red))",
+                          minWidth: "5rem",
+                          textAlign: "center",
+                          fontSize: "0.6rem",
+                        }}
+                      >
+                        {key}
+                      </kbd>
+                      <span className="text-xs font-mono text-muted-foreground tracking-wide">
+                        {action}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
