@@ -1,30 +1,150 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// Official js-dos v7 iframe embed URL for DOOM
-const DOOM_IFRAME_SRC =
-  "https://dos.zone/player/?bundleUrl=https%3A%2F%2Fcdn.dos.zone%2Fcustom%2Fdos%2Fdoom.jsdos&anonymous=1";
+const DOOM_WASM_URL = "https://diekmann.github.io/wasm-fizzbuzz/doom/doom.wasm";
+
+const DOOM_SCREEN_WIDTH = 320 * 2;
+const DOOM_SCREEN_HEIGHT = 200 * 2;
+
+// Doom keycodes mapping from browser keycodes
+function doomKeyCode(keyCode: number): number {
+  switch (keyCode) {
+    case 8: return 127;           // KEY_BACKSPACE
+    case 17: return 0x80 + 0x1d; // KEY_RCTRL
+    case 18: return 0x80 + 0x38; // KEY_RALT
+    case 37: return 0xac;        // KEY_LEFTARROW
+    case 38: return 0xad;        // KEY_UPARROW
+    case 39: return 0xae;        // KEY_RIGHTARROW
+    case 40: return 0xaf;        // KEY_DOWNARROW
+    default:
+      if (keyCode >= 65 && keyCode <= 90) return keyCode + 32; // A-Z to lowercase
+      if (keyCode >= 112 && keyCode <= 123) return keyCode + 75; // F1-F12
+      return keyCode;
+  }
+}
 
 export default function DoomPlayer() {
-  const [started, setStarted] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "running" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const memoryRef = useRef<WebAssembly.Memory | null>(null);
+  const instanceRef = useRef<WebAssembly.Instance | null>(null);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const startDoom = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setStatus("loading");
+    setErrorMsg("");
+
+    try {
+      const memory = new WebAssembly.Memory({ initial: 108 });
+      memoryRef.current = memory;
+
+      function drawCanvas(ptr: number) {
+        const doomScreen = new Uint8ClampedArray(
+          memory.buffer,
+          ptr,
+          DOOM_SCREEN_WIDTH * DOOM_SCREEN_HEIGHT * 4
+        );
+        const renderScreen = new ImageData(doomScreen, DOOM_SCREEN_WIDTH, DOOM_SCREEN_HEIGHT);
+        const ctx = canvas.getContext("2d");
+        ctx?.putImageData(renderScreen, 0, 0);
+      }
+
+      const importObject = {
+        js: {
+          js_console_log: () => {},
+          js_stdout: () => {},
+          js_stderr: () => {},
+          js_milliseconds_since_start: () => performance.now(),
+          js_draw_screen: drawCanvas,
+        },
+        env: { memory },
+      };
+
+      const result = await WebAssembly.instantiateStreaming(
+        fetch(DOOM_WASM_URL),
+        importObject
+      );
+
+      const instance = result.instance;
+      instanceRef.current = instance;
+
+      // Initialize DOOM
+      (instance.exports.main as () => void)();
+
+      // Keyboard input
+      const keyDown = (kc: number) =>
+        (instance.exports.add_browser_event as (t: number, kc: number) => void)(0, kc);
+      const keyUp = (kc: number) =>
+        (instance.exports.add_browser_event as (t: number, kc: number) => void)(1, kc);
+
+      canvas.addEventListener("keydown", (e) => {
+        keyDown(doomKeyCode(e.keyCode));
+        e.preventDefault();
+      });
+      canvas.addEventListener("keyup", (e) => {
+        keyUp(doomKeyCode(e.keyCode));
+        e.preventDefault();
+      });
+
+      canvas.focus();
+      setStatus("running");
+
+      // Game loop
+      const step = () => {
+        (instance.exports.doom_loop_step as () => void)();
+        rafRef.current = requestAnimationFrame(step);
+      };
+      rafRef.current = requestAnimationFrame(step);
+    } catch (err) {
+      console.error("DOOM WASM failed:", err);
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setStatus("error");
+    }
+  };
+
+  const handleFullscreen = () => {
+    canvasRef.current?.requestFullscreen?.();
+  };
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
       {/* Game viewport */}
       <div
         className="relative w-full max-w-4xl doom-border overflow-hidden"
-        style={{ aspectRatio: "4/3", background: "#000" }}
+        style={{ aspectRatio: "16/10", background: "#000" }}
       >
         {/* Scanlines overlay */}
         <div className="absolute inset-0 scanlines z-10 pointer-events-none" />
 
+        {/* DOOM Canvas */}
+        <canvas
+          ref={canvasRef}
+          width={DOOM_SCREEN_WIDTH}
+          height={DOOM_SCREEN_HEIGHT}
+          tabIndex={0}
+          className="w-full h-full outline-none"
+          style={{
+            display: status === "running" ? "block" : "none",
+            imageRendering: "pixelated",
+            cursor: "crosshair",
+          }}
+        />
+
         {/* Idle overlay */}
-        {!started && (
+        {status === "idle" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
             <p className="text-muted-foreground text-xs mb-8 font-mono tracking-widest uppercase">
               [ Click to summon hell ]
             </p>
-            <button onClick={() => setStarted(true)} className="group relative px-10 py-5">
+            <button onClick={startDoom} className="group relative px-10 py-5">
               <span
                 className="relative z-10 fire-gradient"
                 style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "1rem" }}
@@ -40,8 +160,8 @@ export default function DoomPlayer() {
           </div>
         )}
 
-        {/* Loading spinner while iframe loads */}
-        {started && !loaded && (
+        {/* Loading overlay */}
+        {status === "loading" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20 gap-6">
             <p
               className="doom-glow"
@@ -50,7 +170,7 @@ export default function DoomPlayer() {
               LOADING...
             </p>
             <p className="text-muted-foreground text-xs font-mono">
-              Summoning demons from hell, please wait
+              Compiling DOOM WebAssembly, please wait
             </p>
             <div className="flex gap-1">
               {[0, 1, 2, 3, 4].map((i) => (
@@ -68,34 +188,41 @@ export default function DoomPlayer() {
           </div>
         )}
 
-        {/* Game iframe */}
-        {started && (
-          <iframe
-            src={DOOM_IFRAME_SRC}
-            title="DOOM"
-            onLoad={() => setLoaded(true)}
-            className="w-full h-full border-0"
-            allow="fullscreen; autoplay"
-            style={{
-              display: "block",
-              opacity: loaded ? 1 : 0,
-              transition: "opacity 0.3s",
-            }}
-          />
+        {/* Error overlay */}
+        {status === "error" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20 gap-4 p-8">
+            <p
+              className="doom-glow text-center"
+              style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "0.6rem" }}
+            >
+              ☠ GAME OVER ☠
+            </p>
+            <p className="text-muted-foreground text-xs font-mono text-center max-w-xs">
+              {errorMsg}
+            </p>
+            <button
+              onClick={startDoom}
+              className="mt-4 px-6 py-3 doom-border text-sm font-mono text-primary hover:bg-primary/10 transition-colors"
+            >
+              TRY AGAIN
+            </button>
+          </div>
         )}
       </div>
 
-      {started && loaded && (
-        <p className="text-xs font-mono text-muted-foreground tracking-widest text-center">
-          Click inside the game to capture keyboard input · Use fullscreen for best experience
-        </p>
-      )}
-
-      {/* Note about preview limitations */}
-      {!started && (
-        <p className="text-xs font-mono text-center max-w-lg" style={{ color: "hsl(var(--doom-red) / 0.7)" }}>
-          ⚠ The game requires the published URL to run — publish your app to play DOOM
-        </p>
+      {/* Controls bar */}
+      {status === "running" && (
+        <div className="flex gap-4 items-center">
+          <button
+            onClick={handleFullscreen}
+            className="px-6 py-2 doom-border text-sm font-mono text-primary hover:bg-primary/10 transition-colors tracking-widest"
+          >
+            ⛶ FULLSCREEN
+          </button>
+          <p className="text-xs font-mono text-muted-foreground">
+            Click canvas to capture input
+          </p>
+        </div>
       )}
     </div>
   );
