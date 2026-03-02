@@ -43,6 +43,10 @@ function doomKeyCode(keyCode: number): number {
     case 38: return 0xad;        // ↑  KEY_UPARROW
     case 39: return 0xae;        // →  KEY_RIGHTARROW
     case 40: return 0xaf;        // ↓  KEY_DOWNARROW
+    case 87: return 0xad;        // W  → KEY_UPARROW
+    case 65: return 0xac;        // A  → KEY_LEFTARROW
+    case 83: return 0xaf;        // S  → KEY_DOWNARROW
+    case 68: return 0xae;        // D  → KEY_RIGHTARROW
     default:
       if (keyCode >= 65 && keyCode <= 90)  return keyCode + 32; // A-Z → a-z
       if (keyCode >= 112 && keyCode <= 123) return keyCode + 75; // F1-F12

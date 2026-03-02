@@ -5,8 +5,10 @@ const CONTROL_GROUPS = [
   {
     label: "MOVIMIENTO",
     controls: [
-      { key: "↑ / ↓", action: "Avanzar / Retroceder" },
-      { key: "← / →", action: "Girar izquierda / derecha" },
+      { key: "↑ / W", action: "Avanzar" },
+      { key: "↓ / S", action: "Retroceder" },
+      { key: "← / A", action: "Girar izquierda" },
+      { key: "→ / D", action: "Girar derecha" },
       { key: "ALT + ← →", action: "Desplazarse lateral" },
       { key: "SHIFT", action: "Correr (sprint)" },
     ],
